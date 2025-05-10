@@ -1,4 +1,6 @@
-function App() {
+import NavigationTabs from '../components/layout/NavBar'
+
+function Popup() {
 
   return (
     <div className="flex flex-col h-full bg-app-dark text-white">
@@ -17,4 +19,4 @@ function App() {
   )
 }
 
-export default App
+export default Popup

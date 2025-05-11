@@ -5,6 +5,6 @@ import Popup from './popup/index.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Popup
-=  </StrictMode>,
+    <Popup />
+  </StrictMode>,
 )

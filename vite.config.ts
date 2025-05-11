@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import {resolve} from 'path'
+import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,10 +12,16 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: {
-        main: 'index.html',
-        options: 'options.html',
+        popup: resolve(__dirname, 'index.html'),
+        options: resolve(__dirname, 'options.html'),
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          if (chunkInfo.name === 'background') return 'background.js';
+          if (chunkInfo.name === 'content') return 'content.js';
+          return '[name].js';
+        },
       },
     },
   },
-  // After building, you'll need to manually add background.js and content.js to dist folder
 })

@@ -1,5 +1,3 @@
-import NavigationTabs from '../components/layout/NavBar'
-
 function Popup() {
 
   return (

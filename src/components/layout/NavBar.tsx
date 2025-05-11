@@ -24,7 +24,7 @@ const TABS = [
   }
 ]
 
-export default function NavigationTabs() {
+function NavigationTabs() {
   const [selected, setSelected] = useState(TABS[0].id);
 
   return (
@@ -48,3 +48,5 @@ export default function NavigationTabs() {
     </Tabs>
   )
 }
+
+export default NavigationTabs;

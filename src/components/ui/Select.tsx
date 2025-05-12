@@ -59,7 +59,7 @@ export default function Select({
       <button
         type="button"
         onClick={toggleDropdown}
-        className="w-full flex items-center justify-between rounded px-3 py-2 bg-gray-800 border border-gray-700 text-sm text-gray-200"
+        className="w-full flex items-center justify-between rounded px-3 py-2 bg-gray-800 border border-gray-700 text-sm text-gray-200 cursor-pointer"
       >
         <span>{selectedOption?.label || placeholder}</span>
         <ChevronDown 

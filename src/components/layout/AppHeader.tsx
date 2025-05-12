@@ -6,7 +6,7 @@ import { Settings, Menu, Zap } from "lucide-react"
 
 export default function AppHeader() {
   return (
-    <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-gradient-to-r from-gray-900 to-gray-950 p-4">
+    <div className="flex items-center justify-between border-b border-gray-800 bg-gradient-to-r from-gray-900 to-gray-950 p-4 w-full">
       <div className="flex items-center gap-2">
         <Zap className="h-5 w-5 text-green-400" />
         <h1 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-600 bg-clip-text text-transparent">

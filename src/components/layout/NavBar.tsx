@@ -13,7 +13,7 @@ interface NavigationTabsProps {
 function NavigationTabs({ tabList, selectedTabId, onTabChange }: NavigationTabsProps) {
 
   return (
-    <div className="flex items-center justify-center bg-gray-900">
+    <div className="flex items-center justify-center bg-gray-900 overflow-x-auto">
       <Tabs
         aria-label="Options"
         selectedKey={selectedTabId}

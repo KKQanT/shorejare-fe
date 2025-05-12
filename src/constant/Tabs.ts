@@ -20,15 +20,5 @@ export const TABS: TabOption[] = [
     id: "wallet",
     label: "Wallet",
     icon: Wallet
-  },
-  {
-    id: "transfer",
-    label: "Transfer",
-    icon: ArrowUpRight
-  },
-  {
-    id: "stake",
-    label: "Stake",
-    icon: Clock
   }
 ]

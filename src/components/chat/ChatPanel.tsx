@@ -14,6 +14,7 @@ interface Message {
 
 interface ChatPanelProps {
   suggestedPrompts?: string[]
+  useStreaming?: boolean
 }
 
 const DEFAULT_PROMPTS = [
@@ -24,11 +25,19 @@ const DEFAULT_PROMPTS = [
   "Should I short this position?"
 ]
 
-export default function ChatPanel({ suggestedPrompts = DEFAULT_PROMPTS }: ChatPanelProps) {
+const API_BASE_URL = 'http://localhost:3001';
+
+export default function ChatPanel({ 
+  suggestedPrompts = DEFAULT_PROMPTS,
+  useStreaming = true 
+}: ChatPanelProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -36,8 +45,144 @@ export default function ChatPanel({ suggestedPrompts = DEFAULT_PROMPTS }: ChatPa
     }
   }, [messages])
 
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }
+  }, [])
+
   const handleInputChange = (value: string) => {
     setInput(value)
+  }
+
+  const handleStreamingResponse = async (userInput: string, tempId: string) => {
+    try {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      abortControllerRef.current = new AbortController();
+      
+      setDebugInfo(`Starting POST request to: ${API_BASE_URL}/agent/chat-stream`);
+      
+      const response = await fetch(`${API_BASE_URL}/agent/chat-stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userInput }),
+        signal: abortControllerRef.current.signal
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      if (!response.body) {
+        throw new Error("Response body is null");
+      }
+      
+      setDebugInfo(prev => prev + '\nResponse received, setting up reader');
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      let done = false;
+      
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        
+        if (value) {
+          const text = decoder.decode(value);
+          setDebugInfo(prev => prev + '\nReceived chunk: ' + text);
+          
+          const lines = text.split('\n\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const jsonStr = line.substring(6);
+                const data = JSON.parse(jsonStr);
+                
+                if (data.content) {
+                  setDebugInfo(prev => prev + '\nProcessing content: ' + data.content);
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === tempId 
+                      ? { ...msg, content: msg.content + data.content } 
+                      : msg
+                  ));
+                }
+                
+                if (data.done || data.error) {
+                  if (data.error) {
+                    console.error('Streaming error:', data.error);
+                    setDebugInfo(prev => prev + '\nError: ' + data.error);
+                  } else if (data.done) {
+                    setDebugInfo(prev => prev + '\nStream complete');
+                  }
+                }
+              } catch (err) {
+                console.error('Error parsing SSE data:', err);
+                setDebugInfo(prev => prev + '\nParse error: ' + (err instanceof Error ? err.message : String(err)));
+              }
+            }
+          }
+        }
+      }
+      
+      setIsLoading(false);
+      
+    } catch (error) {
+      console.error('Failed to set up streaming:', error);
+      setDebugInfo(prev => prev + '\nSetup error: ' + (error instanceof Error ? error.message : String(error)));
+      setIsLoading(false);
+    } finally {
+      abortControllerRef.current = null;
+    }
+  }
+
+  const handleRegularResponse = async (userInput: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/agent/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userInput }),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.response
+      }
+      
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Failed to get response:', error)
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "Sorry, I encountered an error while processing your request."
+      }
+      
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -49,25 +194,30 @@ export default function ChatPanel({ suggestedPrompts = DEFAULT_PROMPTS }: ChatPa
       role: 'user',
       content: input.trim()
     }
+    
     setMessages(prev => [...prev, userMessage])
     setInput("")
     setIsLoading(true)
+    setDebugInfo(''); // Clear debug info
 
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    const userInput = input.trim()
+
+    if (useStreaming) {
+      const tempId = (Date.now() + 1).toString()
+      setMessages(prev => [...prev, {
+        id: tempId,
         role: 'assistant',
-        content: "This is a placeholder response. Please implement the actual API integration."
-      }
-      setMessages(prev => [...prev, assistantMessage])
-    } catch (error) {
-      console.error('Failed to get response:', error)
-    } finally {
-      setIsLoading(false)
+        content: ''
+      }])
+      
+      await handleStreamingResponse(userInput, tempId)
+    } else {
+      await handleRegularResponse(userInput)
     }
   }
+
+  // Debugging toggle
+  const [showDebug, setShowDebug] = useState(false);
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -106,12 +256,12 @@ export default function ChatPanel({ suggestedPrompts = DEFAULT_PROMPTS }: ChatPa
                       : "bg-gray-800 text-gray-100"
                   }`}
                 >
-                  {message.content}
+                  {message.content || (isLoading ? "Loading..." : "")}
                 </div>
               </div>
             ))
           )}
-          {isLoading && (
+          {isLoading && !useStreaming && (
             <div className="flex justify-start">
               <div className="max-w-[80%] rounded-lg p-3 bg-gray-800 text-gray-100">
                 <div className="flex space-x-2">
@@ -122,10 +272,25 @@ export default function ChatPanel({ suggestedPrompts = DEFAULT_PROMPTS }: ChatPa
               </div>
             </div>
           )}
+          
+          {showDebug && debugInfo && (
+            <div className="mt-4 p-2 bg-black/70 rounded text-xs font-mono text-green-400 whitespace-pre-wrap">
+              {debugInfo}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="p-3 border-t border-gray-800 bg-gray-900">
+        <div className="mb-2 flex justify-end">
+          <button 
+            onClick={() => setShowDebug(!showDebug)} 
+            className="text-xs text-gray-500 hover:text-gray-300"
+          >
+            {showDebug ? 'Hide Debug' : 'Show Debug'}
+          </button>
+        </div>
+        
         <form onSubmit={handleSubmit} className="flex items-end gap-2 focus:outline-none">
           <Textarea
             value={input}

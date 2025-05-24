@@ -1,7 +1,7 @@
 import { useState } from "react"
 import AppHeader from "../components/layout/AppHeader"
 import NavigationTabs from "../components/layout/NavBar"
-import { TABS } from "../constant/Tabs"
+import { TABS } from "../constants/Tabs"
 import ChatView from "../components/views/ChatView"
 
 function Popup() {

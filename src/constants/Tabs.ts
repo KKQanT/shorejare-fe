@@ -1,8 +1,5 @@
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Wallet } from "lucide-react";
 
-import { ArrowUpRight, Wallet } from "lucide-react";
-
-import { Clock } from "lucide-react";
 
 export type TabOption = {
   id: string;

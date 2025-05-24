@@ -1,8 +1,7 @@
 "use client"
 
 import { Tabs, Tab } from "@heroui/react"
-import { useState } from "react"
-import type {  TabOption } from "../../constant/Tabs"
+import type {  TabOption } from "../../constants/Tabs"
 
 interface NavigationTabsProps {
   tabList: TabOption[],

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import './Options.css';
+import { loadConfig, saveConfig } from '../utils/chromeStorage';
+
+//setting template. Might use it when developing wallet feature
 
 interface SettingsType {
   enabled: boolean;
@@ -13,6 +16,8 @@ function Options() {
     theme: 'light',
     apiKey: '',
   });
+  const [apiBaseUrl, setApiBaseUrl] = useState('http://localhost:3001');
+  const [saveStatus, setSaveStatus] = useState('');
 
   useEffect(() => {
     // Load settings when component mounts
@@ -21,22 +26,39 @@ function Options() {
         setSettings(result.settings);
       }
     });
+    
+    // Load API config
+    const fetchConfig = async () => {
+      try {
+        const config = await loadConfig();
+        setApiBaseUrl(config.apiBaseUrl);
+      } catch (error) {
+        console.error('Failed to load API config:', error);
+      }
+    };
+    
+    fetchConfig();
   }, []);
 
-  const handleSave = () => {
-    // Save settings
+  const handleSave = async () => {
     chrome.storage.sync.set({ settings }, () => {
       console.log('Settings saved');
-      
-      // Show saved message
-      const status = document.getElementById('status');
-      if (status) {
-        status.textContent = 'Options saved.';
-        setTimeout(() => {
-          status.textContent = '';
-        }, 2000);
-      }
     });
+    
+    try {
+      await saveConfig({ apiBaseUrl });
+      
+      setSaveStatus('Options saved.');
+      setTimeout(() => {
+        setSaveStatus('');
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to save API config:', error);
+      setSaveStatus('Error saving options.');
+      setTimeout(() => {
+        setSaveStatus('');
+      }, 2000);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,6 +67,10 @@ function Options() {
       ...settings,
       [name]: type === 'checkbox' ? checked : value,
     });
+  };
+
+  const handleApiUrlReset = () => {
+    setApiBaseUrl('http://localhost:3001');
   };
 
   return (
@@ -90,9 +116,31 @@ function Options() {
         </label>
       </div>
       
+      <div className="option-row">
+        <label>
+          API Base URL:
+          <input
+            type="url"
+            name="apiBaseUrl"
+            value={apiBaseUrl}
+            onChange={(e) => setApiBaseUrl(e.target.value)}
+            placeholder="https://api.example.com"
+          />
+        </label>
+        <button 
+          onClick={handleApiUrlReset}
+          className="reset-button"
+        >
+          Reset
+        </button>
+        <p className="option-description">
+          The base URL for the ShareJore AI API server
+        </p>
+      </div>
+      
       <div className="actions">
         <button onClick={handleSave}>Save</button>
-        <span id="status"></span>
+        <span id="status">{saveStatus}</span>
       </div>
     </div>
   );
